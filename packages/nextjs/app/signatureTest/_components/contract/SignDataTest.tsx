@@ -4,6 +4,8 @@ import { ethers } from "ethers";
 import { Address as AddressType } from "viem";
 import { useAccount, useContractRead, useContractWrite, useNetwork } from "wagmi";
 import { AddressInput, IntegerInput } from "~~/components/scaffold-eth";
+import { useTransactor } from "~~/hooks/scaffold-eth";
+import { getParsedError, notification } from "~~/utils/scaffold-eth";
 import { Contract, ContractName } from "~~/utils/scaffold-eth/contract";
 
 export const SignDataTest = ({ deployedContractData }: { deployedContractData: Contract<ContractName> }) => {
@@ -14,6 +16,7 @@ export const SignDataTest = ({ deployedContractData }: { deployedContractData: C
 
   const { chain: ConnectedChain } = useNetwork();
   const { address: connectedAddress } = useAccount();
+  const writeTxn = useTransactor();
 
   const contractnonces = useContractRead({
     address: deployedContractData.address,
@@ -30,7 +33,7 @@ export const SignDataTest = ({ deployedContractData }: { deployedContractData: C
     },
   });
 
-  const { write } = useContractWrite({
+  const { writeAsync } = useContractWrite({
     address: deployedContractData.address,
     abi: deployedContractData.abi as Abi,
     functionName: "permit",
@@ -96,16 +99,24 @@ export const SignDataTest = ({ deployedContractData }: { deployedContractData: C
     console.log("signature");
     console.log(signature);
     const split = ethers.utils.splitSignature(signature);
-    let v, r, s;
-    (v = split.v), (r = split.r), (s = split.s);
     console.log("v: " + split.v);
     console.log("r: " + split.r);
     console.log("s: " + split.s);
 
     // Now you can use this provider to interact with the connected wallet
-    write({
-      args: [connectedAddress, spenderAddress, amount, deadLine, v, r, s],
-    });
+
+    if (writeAsync) {
+      try {
+        const makeWriteWithParams = () =>
+          writeAsync({
+            args: [connectedAddress, spenderAddress, amount, deadLine, split.v, split.r, split.s],
+          });
+        await writeTxn(makeWriteWithParams);
+      } catch (e: any) {
+        const message = getParsedError(e);
+        notification.error(message);
+      }
+    }
   };
 
   return (

@@ -13,3 +13,4 @@ node_modules
 .DS_Store
 
 tips.md
+packages/nextjs/contracts/deployedContracts.ts
